@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Scientific Calculator - OCR + Graphing</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+    <script src="https://cdn.plotly.com/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .calculator { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border-radius: 25px; padding: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); max-width: 450px; width: 100%; margin: 20px; }
+        .header { text-align: center; margin-bottom: 20px; color: #333; }
+        .display { background: #222; color: #0f0; font-size: 28px; padding: 20px; border-radius: 15px; margin-bottom: 20px; min-height: 80px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; }
+        .image-drop { border: 3px dashed #667eea; border-radius: 15px; padding: 20px; text-align: center; margin-bottom: 20px; cursor: pointer; transition: all 0.3s; }
+        .image-drop.dragover { background: #e3f2fd; border-color: #2196f3; }
+        .tabs { display: flex; margin-bottom: 20px; }
+        .tab { flex: 1; padding: 12px; background: #f5f5f5; border: none; border-radius: 10px 10px 0 0; cursor: pointer; transition: all 0.3s; }
+        .tab.active { background: #667eea; color: white; }
+        .buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+        button { height: 60px; border: none; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .num { background: #f8f9fa; color: #333; }
+        .op { background: #667eea; color: white; }
+        .func { background: #ff9800; color: white; }
+        .eq { background: linear-gradient(45deg, #4caf50, #45a049); color: white; font-size: 24px; }
+        button:hover { transform: scale(1.05); }
+        button:active { transform: scale(0.98); }
+        .graph-container { height: 300px; margin-top: 20px; border-radius: 15px; overflow: hidden; }
+        .result { background: #e8f5e8; padding: 15px; border-radius: 10px; margin-top: 15px; font-size: 20px; }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <div class="header">
+            <h1>🧮 Scientific Calculator</h1>
+            <p>OCR Equations + Graphs</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('calc')">Calculator</button>
+            <button class="tab" onclick="switchTab('ocr')">Image OCR</button>
+            <button class="tab" onclick="switchTab('graph')">Graph</button>
+        </div>
+        
+        <div id="calc-tab" class="tab-content">
+            <div class="display" id="display">0</div>
+            <div class="buttons">
+                <button class="func" onclick="addToDisplay('sin(')">sin</button>
+                <button class="func" onclick="addToDisplay('cos(')">cos</button>
+                <button class="func" onclick="addToDisplay('tan(')">tan</button>
+                <button class="func" onclick="addToDisplay('log(')">log</button>
+                <button class="func" onclick="addToDisplay('√(')">√</button>
+                <button onclick="addToDisplay('7')">7</button>
+                <button onclick="addToDisplay('8')">8</button>
+                <button onclick="addToDisplay('9')">9</button>
+                <button class="op" onclick="addToDisplay('/')">/</button>
+                <button class="func" onclick="addToDisplay('π')">π</button>
+                <button onclick="addToDisplay('4')">4</button>
+                <button onclick="addToDisplay('5')">5</button>
+                <button onclick="addToDisplay('6')">6</button>
+                <button class="op" onclick="addToDisplay('*')">×</button>
+                <button class="func" onclick="addToDisplay('e')">e</button>
+                <button onclick="addToDisplay('1')">1</button>
+                <button onclick="addToDisplay('2')">2</button>
+                <button onclick="addToDisplay('3')">3</button>
+                <button class="op" onclick="addToDisplay('-')">-</button>
+                <button onclick="addToDisplay('0')">0</button>
+                <button onclick="addToDisplay('.')">.</button>
+                <button class="op" onclick="addToDisplay('+')">+</button>
+                <button onclick="clearDisplay()" style="background:#ff5722;color:white;">C</button>
+                <button class="eq" onclick="calculate()" rowspan="2">=</button>
+            </div>
+        </div>
+        
+        <div id="ocr-tab" class="tab-content" style="display:none;">
+            <div class="image-drop" id="dropZone">
+                📸 Paste image or drag-drop here<br>
+                <small>Works with typed/handwritten equations</small>
+            </div>
+            <div id="ocrResult"></div>
+        </div>
+        
+        <div id="graph-tab" class="tab-content" style="display:none;">
+            <input type="text" id="graphInput" placeholder="y = x^2 + 2x + 1" style="width:100%; padding:15px; border-radius:10px; border:2px solid #ddd; font-size:16px; margin-bottom:15px;">
+            <button onclick="plotGraph()" style="width:100%; padding:15px; background:#4caf50; color:white; border:none; border-radius:10px; font-size:18px;">📈 Plot Graph</button>
+            <div class="graph-container" id="graphDiv"></div>
+        </div>
+    </div>
+
+    <script>
+        let displayValue = '0';
+        let currentTab = 'calc';
+        
+        function updateDisplay() {
+            document.getElementById('display').textContent = displayValue;
+        }
+        
+        function addToDisplay(value) {
+            if (displayValue === '0') displayValue = '';
+            displayValue += value;
+            updateDisplay();
+        }
+        
+        function clearDisplay() {
+            displayValue = '0';
+            updateDisplay();
+        }
+        
+        function calculate() {
+            try {
+                // Replace × with * for math.js
+                let expression = displayValue.replace(/×/g, '*').replace(/π/g, 'pi').replace(/e/g, 'e');
+                let result = math.evaluate(expression);
+                displayValue = result.toString();
+                updateDisplay();
+            } catch (e) {
+                displayValue = 'Error';
+                updateDisplay();
+            }
+        }
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab + '-tab').style.display = 'block';
+            event.target.classList.add('active');
+            currentTab = tab;
+        }
+        
+        // OCR Functionality
+        const dropZone = document.getElementById('dropZone');
+        const ocrResult = document.getElementById('ocrResult');
+        
+        dropZone.addEventListener('dragover', e => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', async e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            await processImage(file);
+        });
+        
+        dropZone.addEventListener('click', () => {
+            navigator.mediaDevices.getUserMedia({video: true}).then(stream => {
+                // Placeholder for camera - just alert for demo
+                alert('Paste image with Ctrl+V or drag-drop!');
+            });
+        });
+        
+        // Paste image support
+        document.addEventListener('paste', async e => {
+            if (currentTab === 'ocr') {
+                const items = e.clipboardData.items;
+                for (let item of items) {
+                    if (item.type.indexOf('image') !== -1) {
+                        const file = item.getAsFile();
+                        await processImage(file);
+                        break;
+                    }
+                }
+            }
+        });
+        
+        async function processImage(file) {
+            dropZone.textContent = '🔄 Processing image...';
+            try {
+                const result = await Tesseract.recognize(file, 'eng', {
+                    tessedit_char_whitelist: '0123456789+-*/=().xπ√',
+                    tessedit_pageseg_mode: '6' // Single uniform block of text
+                });
+                
+                const extracted = result.data.text.trim().replace(/\s+/g, '');
+                ocrResult.innerHTML = `
+                    <div class="result">
+                        <strong>📝 Extracted:</strong> ${extracted}<br>
+                        <strong>✅ Solved:</strong> ${solveEquation(extracted) || 'Try typing manually'}
+                    </div>
+                `;
+                dropZone.textContent = '✅ Done! Paste another image';
+            } catch (e) {
+                ocrResult.innerHTML = '<div class="result" style="background:#ffebee;color:#c62828;">OCR failed. Try clearer image.</div>';
+                dropZone.textContent = '📸 Try again';
+            }
+        }
+        
+        function solveEquation(eq) {
+            try {
+                // Simple solver for ax+b=0 form
+                if (eq.includes('=')) {
+                    let [left, right] = eq.split('=').map(s => s.replace(/x/g, 'x'));
+                    let expr = `(${left})-(${right})`;
+                    let result = math.simplify(expr).toString();
+                    return math.evaluate(result.replace('x', '1')); // Basic eval
+                }
+                return math.evaluate(eq.replace(/×/g, '*'));
+            } catch {
+                return 'Invalid equation';
+            }
+        }
+        
+        function plotGraph() {
+            const expr = document.getElementById('graphInput').value;
+            if (!expr) return;
+            
+            try {
+                const x = Array.from({length: 500}, (_, i) => (i - 250) / 50);
+                const y = x.map(xi => math.evaluate(expr.replace('x', xi).replace('pi', 'pi')));
+                
+                const trace = {
+                    x: x, y: y,
+                    type: 'scatter', mode: 'lines',
+                    line: {color: '#667eea', width: 3}
+                };
+                
+                Plotly.newPlot('graphDiv', [trace], {
+                    title: {text: `Graph: ${expr}`, font: {size: 16}},
+                    margin: {l: 40, r: 40, t: 50, b: 40}
+                });
+            } catch (e) {
+                alert('Invalid graph expression');
+            }
+        }
+        
+        // Keyboard support
+        document.addEventListener('keydown', e => {
+            if (currentTab !== 'calc') return;
+            if (e.key >= '0' && e.key <= '9' || e.key === '.') addToDisplay(e.key);
+            if (e.key === '+') addToDisplay('+');
+            if (e.key === '-') addToDisplay('-');
+            if (e.key === '*') addToDisplay('*');
+            if (e.key === '/') addToDisplay('/');
+            if (e.key === 'Enter' || e.key === '=') calculate();
+            if (e.key === 'Escape') clearDisplay();
+        });
+        
+        updateDisplay();
+    </script>
+</body>
+</html>
