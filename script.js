@@ -1,98 +1,111 @@
-// IMPROVED OCR FUNCTION (Replace the OCR section in script.js)
+// ULTRA-PRECISE MATH OCR - Replace ENTIRE OCR section
 async function processOCR(file) {
-    dropZone.innerHTML = '<div class="drop-icon">⏳</div><div class="drop-text">Processing image...</div>';
+    dropZone.innerHTML = '<div class="drop-icon">⏳</div><div class="drop-text">Extracting math...</div>';
     
     try {
-        // BETTER TESSERACT CONFIG FOR MATH [web:42]
-        const { data: { text } } = await Tesseract.recognize(file, 'eng', {
-            logger: m => console.log(m),  // Debug
-            tessedit_char_whitelist: '0123456789+-*/=().xXyπ√e^ ',  // Math chars only
-            tessedit_pageseg_mode: Tesseract.PSM.SINGLE_CHAR,  // Better for equations
-            tessedit_ocr_engine_mode: '1'  // LSTM engine
+        // MATH-SPECIFIC TESSERACT SETTINGS [web:42]
+        const { data: { text, words } } = await Tesseract.recognize(file, 'eng+equ', {
+            tessedit_char_whitelist: '0123456789+-*/=().xXyπ√^e% ',
+            tessedit_pageseg_mode: Tesseract.PSM.SINGLE_WORD,  // Focus on equation block
+            tessedit_ocr_engine_mode: '1'
         });
         
-        let equation = text.trim()
-            .replace(/\|/g, '')  // Remove noise
-            .replace(/\s+/g, '') // Remove spaces
-            .replace(/O/g, '0')  // O→0
-            .replace(/l/g, '1')  // l→1
-            .replace(/S/g, '5')  // S→5
-            .toLowerCase();  // Normalize
+        // EXTRACT ONLY MATH PART - Ignore "Printed:", filenames, etc.
+        let rawText = text.trim().replace(/\s+/g, '');
         
-        console.log('Raw OCR:', text);
-        console.log('Cleaned:', equation);
+        // Filter to math-like strings only
+        const mathCandidates = rawText
+            .split(/[;,\n]/)  // Split by separators
+            .map(s => s.trim())
+            .filter(s => {
+                // Must contain math symbols
+                return /[+\-*/=()x√]/.test(s) && s.length > 2 && s.length < 30;
+            });
+        
+        let equation = mathCandidates[0] || rawText;
+        
+        // Clean common OCR errors
+        equation = equation
+            .replace(/O/g, '0')
+            .replace(/l/g, '1')
+            .replace(/S/g, '5')
+            .replace(/Z/g, '2')
+            .replace(/B/g, '8')
+            .replace(/Printed:|Image:/gi, '')  // Remove labels
+            .replace(/jpg|png/gi, '')
+            .replace(/[^0123456789+\-*/=().xXy√^eπ%]/g, '');  // Keep ONLY math chars
+        
+        console.log('RAW OCR:', rawText);
+        console.log('CANDIDATES:', mathCandidates);
+        console.log('FINAL EQ:', equation);
         
         const solution = solveEquationImproved(equation);
         
         ocrResult.innerHTML = `
             <div class="result-box">
-                <strong>Raw OCR:</strong> <code>${text.trim()}</code><br><br>
-                <strong>Cleaned:</strong> <code style="font-size:22px">${equation}</code><br><br>
-                <strong>Solution:</strong> ${solution}
-                <button onclick="copyToCalc('${equation}')" style="margin-top:10px;padding:8px 16px;background:#5856d6;border:none;border-radius:6px;color:white;cursor:pointer">➤ Edit in Calculator</button>
+                <div style="font-size:20px;margin-bottom:10px">
+                    📝 <strong>Raw:</strong> <span style="background:#ffeb3b;color:#333;padding:4px;border-radius:4px;font-family:monospace">${rawText}</span>
+                </div>
+                <div style="font-size:24px;margin:15px 0;background:#e3f2fd;padding:15px;border-radius:10px;font-family:monospace">
+                    ✅ <strong>Math:</strong> ${equation}
+                </div>
+                <div style="font-size:22px;background:#e8f5e8;padding:15px;border-radius:10px">
+                    <strong>Solution:</strong> ${solution}
+                </div>
+                <button onclick="copyToCalc('${equation}')" 
+                        style="width:100%;margin-top:15px;padding:12px;background:#5856d6;border:none;border-radius:8px;color:white;font-size:16px;font-weight:bold;cursor:pointer">
+                    ➤ Use in Calculator
+                </button>
             </div>
         `;
+        dropZone.innerHTML = '<div class="drop-icon">✅</div><div class="drop-text">Fixed! Paste next equation</div>';
         
-        dropZone.innerHTML = '✅ Success! Drop next image';
     } catch (error) {
-        console.error('OCR Error:', error);
-        ocrResult.innerHTML = '<div class="result-box" style="background:linear-gradient(45deg,#ff3b30,#ff9500)">❌ OCR failed. Tips:<br>• Use <strong>printed</strong> equations<br>• High contrast black/white<br>• Single equation per image</div>';
-        dropZone.innerHTML = '📷 Try clearer image';
+        console.error(error);
+        ocrResult.innerHTML = `
+            <div class="result-box" style="background:linear-gradient(45deg,#ff6b6b,#ee5a52)">
+                ❌ No math detected. <strong>Tips:</strong><br>
+                • Crop to JUST the equation<br>
+                • Black text on white background<br>
+                • Printed > handwriting
+            </div>
+        `;
     }
 }
 
-// IMPROVED SOLVER - Handles more cases
+// BETTER LINEAR SOLVER
 function solveEquationImproved(eq) {
     try {
-        // Fix common OCR errors
-        eq = eq.replace(/xx/g, 'x^2')
-               .replace(/\^2/g, '**2')
-               .replace(/sqrt/g, 'sqrt')
-               .replace(/pi/g, 'pi');
-        
-        // Solve linear equations ax+b=0
-        if (eq.includes('=')) {
-            const sides = eq.split('=');
-            if (sides.length === 2) {
-                let left = sides[0], right = sides[1];
-                // Simple solver for ax + b = c
-                const solved = solveLinear(left, right);
-                if (solved !== null) return `x = ${solved}`;
-            }
+        // Test simple cases first
+        if (eq.includes('=') && eq.includes('x')) {
+            const result = solveLinear(eq);
+            if (result !== null) return `x = ${result.toFixed(2)}`;
         }
         
-        // Evaluate direct expression
-        return math.evaluate(eq.replace(/×/g, '*').replace(/÷/g, '/'));
-    } catch {
-        return 'Parse error - edit manually';
+        // Direct evaluation
+        let expr = eq
+            .replace(/×/g, '*')
+            .replace(/÷/g, '/')
+            .replace(/√/g, 'sqrt')
+            .replace(/π/g, 'pi')
+            .replace(/\^/g, '**');
+        
+        const result = math.evaluate(expr);
+        return Number.isInteger(result) ? result : result.toFixed(4);
+        
+    } catch (e) {
+        return `<span style="color:#ff9800">Edit manually 👆</span>`;
     }
 }
 
-// Simple linear solver ax + b = c → x = (c - b)/a
-function solveLinear(left, right) {
-    try {
-        // Extract coefficients (very basic)
-        const a = parseFloat(left.match(/(-?\d*\.?\d*)x/)?.[1] || left.includes('x') ? 1 : 0);
-        const b = parseFloat(left.replace(/(-?\d*\.?\d*)x/, '') || 0);
-        const c = parseFloat(right || 0);
-        
-        if (a !== 0) {
-            return (c - b) / a;
-        }
-        return null;
-    } catch {
-        return null;
+function solveLinear(eq) {
+    // 2x + 3 = 7 → x = 2
+    const match = eq.match(/([+-]?\d*\.?\d*)?\s*x\s*([+-]\s*\d*\.?\d*)?\s*=\s*([+-]?\d*\.?\d*)/i);
+    if (match) {
+        const a = parseFloat(match[1] || 1);
+        const b = parseFloat(match[2] || 0);
+        const c = parseFloat(match[3] || 0);
+        return a !== 0 ? (c - b) / a : null;
     }
+    return null;
 }
-
-// Copy to calculator
-function copyToCalc(eq) {
-    display = eq;
-    updateDisplay();
-    showTab('calculator');  // Switch to calc tab
-}
-
-// Add this to dropZone click for testing
-dropZone.addEventListener('click', () => {
-    alert('💡 OCR Tips:\n• Printed text > handwriting\n• Black equations on white\n• One equation per image\n• Large, clear images work best');
-});
