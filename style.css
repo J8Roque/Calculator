@@ -1,0 +1,139 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 30px;
+    padding: 30px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+    max-width: 500px;
+    width: 100%;
+}
+
+.calc-header {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.calc-header h1 {
+    color: #333;
+    font-size: 28px;
+    margin-bottom: 5px;
+}
+
+.calc-header p {
+    color: #666;
+    font-size: 14px;
+}
+
+.tabs {
+    display: flex;
+    margin-bottom: 25px;
+    background: #f8f9fa;
+    border-radius: 15px 15px 0 0;
+    overflow: hidden;
+}
+
+.tab {
+    flex: 1;
+    padding: 15px;
+    background: none;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: #666;
+}
+
+.tab.active {
+    background: #667eea;
+    color: white;
+}
+
+.tab-panel {
+    background: white;
+    border-radius: 0 0 20px 20px;
+    padding: 25px;
+}
+
+.display {
+    background: #1a1a2e;
+    color: #00ff88;
+    font-size: 32px;
+    font-weight: bold;
+    padding: 25px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    min-height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.calc-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 15px;
+}
+
+.btn {
+    height: 65px;
+    border: none;
+    border-radius: 18px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: white;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.num { background: #e9ecef; color: #333; }
+.op { background: #ff9500; }
+.func { background: #5856d6; }
+.clear { background: #ff3b30; }
+.equals { background: linear-gradient(45deg, #34c759, #30d158); font-size: 28px; grid-row: span 2; }
+.wide { grid-column: span 2; }
+
+.drop-zone {
+    border: 4px dashed #667eea;
+    border-radius: 20px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 20px;
+}
+
+.drop-zone:hover, .drop-zone.dragover {
+    background: rgba(102, 126, 234, 0.1);
+    border-color: #5856d6;
+    transform: scale(1.02);
+}
+
+.drop-icon { font-
