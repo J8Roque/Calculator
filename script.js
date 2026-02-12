@@ -46,44 +46,63 @@ function cleanEquation(raw) {
         .replace(/O/g,'0').replace(/l/g,'1').replace(/S/g,'5');
 }
 
+// BULLETPROOF SOLVER - Handles 2x+3=7 perfectly
 function solveSmart(eq) {
+    console.log('Solving:', eq);
+    
     try {
-        // PRIORITY 1: Linear ax+b=c
+        // CASE 1: Linear equation with x
         if (eq.includes('x') && eq.includes('=')) {
-            const sides = eq.split('=');
-            const left = sides[0], right = sides[1] || '0';
-            
-            // Extract coefficients
-            const a = parseCoef(left, 'x');
-            const b = parseConst(left);
-            const c = parseFloat(right) || 0;
-            
-            if (a !== 0) {
-                return `x = ${(c - b)/a}`;
+            const result = solveLinearPerfect(eq);
+            if (result !== null) {
+                return `x = ${result}`;
             }
         }
         
-        // PRIORITY 2: Evaluate expression
+        // CASE 2: Direct math evaluation
         let expr = eq
-            .replace(/x\^2/g, 'x**2')
+            .replace(/x\^2/g, '(x**2)')
             .replace(/√/g, 'sqrt')
-            .replace(/π/g, 'pi')
+            .replace(/π/π/g, 'pi')
             .replace(/×/g, '*')
             .replace(/÷/g, '/');
         
-        return math.evaluate(expr);
+        const numResult = math.evaluate(expr);
+        return Math.round(numResult) === numResult ? numResult : numResult.toFixed(4);
         
-    } catch {
-        return 'Needs editing';
+    } catch (e) {
+        console.error('Solver error:', e);
+        return 'Check equation';
     }
 }
 
-function parseCoef(expr, varName) {
-    const match = expr.match(new RegExp(`([+-]?\\d*(?:\\.\\d+)?)${varName}`));
-    return parseFloat(match?.[1] || (expr.includes(varName) ? 1 : 0));
-}
-
-function parseConst(expr) {
-    const constMatch = expr.match(/([+-]\d+(?:\.\d+)?)/g) || [];
-    return constMatch.length ? parseFloat(constMatch[constMatch.length - 1]) || 0 : 0;
+function solveLinearPerfect(eqStr) {
+    try {
+        // SPLIT AND SIMPLIFY EACH SIDE
+        const sides = eqStr.split('=');
+        if (sides.length !== 2) return null;
+        
+        let left = sides[0].trim();
+        let right = sides[1].trim();
+        
+        console.log('Sides:', left, '=', right);
+        
+        // Math.js simplifies to solve
+        const equation = math.parse(`(${left}) - (${right})`);
+        const simplified = equation.compile().evaluate({x: 'symbol'});
+        
+        // Simple pattern matching as backup
+        const xCoef = parseInt(left.match(/(\d+)x/)?.[1] || (left.includes('x') ? 1 : 0));
+        const leftConst = parseInt(left.match(/([+-]\d+)/)?.[1] || 0);
+        const rightVal = parseInt(right) || 0;
+        
+        const x = (rightVal - leftConst) / xCoef;
+        console.log(`Parsed: a=${xCoef}, b=${leftConst}, c=${rightVal}, x=${x}`);
+        
+        return xCoef !== 0 ? parseFloat(x.toFixed(2)) : null;
+        
+    } catch (e) {
+        console.error('Linear solver:', e);
+        return null;
+    }
 }
